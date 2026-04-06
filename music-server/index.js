@@ -3,15 +3,15 @@ const cors = require('cors');
 const axios = require('axios');
 const NodeCache = require('node-cache');
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs'); // Yeni eklendi
-const jwt = require('jsonwebtoken'); // Yeni eklendi
+const bcrypt = require('bcryptjs'); 
+const jwt = require('jsonwebtoken'); 
 
 const app = express();
 const myCache = new NodeCache({ stdTTL: 3600 });
 
-// MIDDLEWARE (SIRALAMA ÖNEMLİ)
+// MIDDLEWARE
 app.use(cors());
-app.use(express.json()); // Frontend'den gelen JSON verilerini okumak için ŞART!
+app.use(express.json()); 
 
 // MONGODB BAĞLANTISI
 const mongoURI = "mongodb+srv://ubeydmirzad_db_user:QHHnFpKDkDYQt2cZ@umirza.ya2e3sm.mongodb.net/muzik_veritabani?retryWrites=true&w=majority";
@@ -34,7 +34,7 @@ const User = mongoose.model('User', userSchema);
 // YOUTUBE API ANAHTARI
 const YOUTUBE_API_KEY = "AIzaSyDbxxQwVkdKAXGaRB1x_DKYGJjU6s1Mwf4"; 
 
-// --- ROTARLAR ---
+// --- ROTALAR ---
 
 app.get('/', (req, res) => res.send("Sunucu Ayakta! 🚀"));
 
@@ -65,7 +65,6 @@ app.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Geçersiz şifre!" });
 
-        // JWT Token oluştur (Gizli anahtar: 'spotify_gizli_key')
         const token = jwt.sign({ id: user._id }, 'spotify_gizli_key', { expiresIn: '7d' });
 
         res.json({
@@ -77,9 +76,38 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// MEVCUT ARAMA VE OYNATMA ROTARLARI (AYNEN KALSIN)
+// 3. ÇALMA LİSTESİNE ŞARKI EKLEME (PLAYLIST ADD) - YENİ EKLENDİ!
+app.post('/add-to-playlist', async (req, res) => {
+    try {
+        const { userId, track } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı!" });
+
+        // Eğer kullanıcının hiç playlisti yoksa ilkini oluştur
+        if (!user.playlists || user.playlists.length === 0) {
+            user.playlists = [{ name: "Favorilerim", tracks: [] }];
+        }
+
+        // Şarkı zaten ekli mi kontrol et (videoId ile)
+        const isExist = user.playlists[0].tracks.some(t => t.videoId === track.videoId);
+        if (isExist) {
+            return res.status(400).json({ message: "Bu şarkı zaten listende var! 😊" });
+        }
+
+        // Şarkıyı ekle ve kaydet
+        user.playlists[0].tracks.push(track);
+        await user.save();
+
+        res.json({ message: "Şarkı başarıyla eklendi! ✨" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Sunucu hatası oluştu." });
+    }
+});
+
+// ARAMA ROTASI
 app.get('/search-with-images', async (req, res) => {
-    // ... senin mevcut kodun ...
     try {
         const query = req.query.q;
         if (!query) return res.json([]);
@@ -101,8 +129,8 @@ app.get('/search-with-images', async (req, res) => {
     }
 });
 
+// OYNATMA (PLAY) ROTASI
 app.get('/play', async (req, res) => {
-    // ... senin mevcut kodun ...
     try {
         const query = req.query.q;
         if (!query) return res.json({});
