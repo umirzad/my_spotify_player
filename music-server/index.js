@@ -1,7 +1,6 @@
 const express=require('express');
 const cors=require('cors');
 const yts=require('yt-search');
-const { error } = require('autoprefixer/lib/utils');
 const app=express()
 
 app.use(cors());
@@ -31,5 +30,5 @@ app.get('/search-with-images',async(req,res)=>{
     }
 });
 
-const PORT=procces.env.PORT || 3000;
+const PORT=proces.env.PORT || 3000;
 app.listen(PORT,()=>console.log(`Sunucu ${PORT} portunda aktif`));
