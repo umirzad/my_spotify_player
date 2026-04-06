@@ -1,22 +1,27 @@
-const express=require('express');
-const cors=require('cors');
-const yts=require('yt-search');
-const app=express()
+const express=require('express')
+const cors=require('cors')
+const yts=require('yt-search')
+const NodeCache=require('node-cache');
+
+const app=express();
+const myCache=new NodeCache({stdTTL:600});
+
 
 app.use(cors());
 
-app.get('/',(req,res)=>{
-    res.send("sunucu aktif ve uyanık")
-});
 
-app.get('/search-with-images',async(req,res)=>{
+app.get('/search-with-images', async(req,res)=>{
     const query=req.query.q;
     if(!query) return res.json([]);
 
+    const coachedResult=myCache.get(query);
+    if(coachedResult){
+        console.log(`hafizadan getirildi: ${query}`);
+    }
 
     try{
+        console.log(`youtube dan veri çekiliyor: ${query}`);
         const result=await yts({query,hl:'tr',gl:'TR'});
-        
         const videos=result.videos.slice(0,12);
 
         const tracks=videos.map(v=>({
@@ -27,10 +32,12 @@ app.get('/search-with-images',async(req,res)=>{
             duration:v.timestamp
         }));
 
+        myCache.set(query,tracks);
+
         res.json(tracks);
     }catch(err){
-        console.error("Arama Hatası:",err.message);
-        res.status(500).json({error:"arama yapılamadı"})
+        res.status(500).json({error:'arama yapılamadı'});
+
     }
 });
 
