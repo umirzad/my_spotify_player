@@ -5,6 +5,10 @@ const app=express()
 
 app.use(cors());
 
+app.get('/',(req,res)=>{
+    res.send("sunucu aktif ve uyanık")
+});
+
 app.get('/search-with-images',async(req,res)=>{
     const query=req.query.q;
     if(!query) return res.json([]);
