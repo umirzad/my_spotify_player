@@ -9,7 +9,7 @@ const myCache=new NodeCache({stdTTL:3600});
 
 app.use(cors());
 
-const YOUTUBE_API_KEY=AIzaSyDbxxQwVkdKAXGaRB1x_DKYGJjU6s1Mwf4;
+const YOUTUBE_API_KEY="AIzaSyDbxxQwVkdKAXGaRB1x_DKYGJjU6s1Mwf4";
 
 app.get('/',(req,res)=> res.send("Youtube apı hazır"));
 
