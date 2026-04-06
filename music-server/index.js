@@ -9,7 +9,7 @@ const myCache = new NodeCache({ stdTTL: 3600 });
 app.use(cors());
 
 // ANAHTARIN BAŞINDA VE SONUNDA TEK TIRNAK OLDUĞUNDAN EMİN OL
-const YOUTUBE_API_KEY = 'AIzaSyDbxxQwVkdKAXGaRB1x_DKYGjJu6s1Mwf4'; 
+const YOUTUBE_API_KEY = "AIzaSyDbxxQwVkdKAXGaRB1x_DKYGJjU6s1Mwf4"; 
 
 app.get('/', (req, res) => res.send("Sunucu Ayakta! 🚀"));
 
