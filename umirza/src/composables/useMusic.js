@@ -9,13 +9,22 @@ export function useMusic() {
         if (!query || query.length < 2) return;
         loading.value = true;
         try {
-            // ARTIK LOCALHOST DEĞİL, RENDER ADRESİN:
             const res = await fetch(`https://my-spotify-player-tm8k.onrender.com/search-with-images?q=${encodeURIComponent(query)}`);
             const data = await res.json();
-            results.value = data;
+            
+            // VERİ EŞLEME (MAPPING)
+            // Backend'den gelen 'youtubeThumb'u 'thumbnail'e, 'name'i 'title'a çeviriyoruz
+            const formattedData = data.map(song => ({
+                ...song,
+                title: song.name,      // Arayüzün 'title' bekliyorsa
+                thumbnail: song.youtubeThumb, // Arayüzün 'thumbnail' bekliyorsa
+                artist: song.artist
+            }));
+
+            results.value = formattedData;
 
             const playerStore = usePlayerStore();
-            playerStore.setTracks(data);
+            playerStore.setTracks(formattedData);
         } catch (err) {
             console.error("Arama sırasında hata oluştu:", err);
         } finally {
