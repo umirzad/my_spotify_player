@@ -3,6 +3,13 @@ const cors = require('cors');
 const axios = require('axios');
 const NodeCache = require('node-cache');
 
+const mongoose=require('mongoose');
+const mongoURI="mongodb+srv://ubeydmirzad_db_user:QHHnFpKDkDYQt2cZ@umirza.ya2e3sm.mongodb.net/?appName=umirza"
+
+mongoose.connect(mongoURI)
+    .then(()=>console.log("Mongo Db bağlantısı başarılı"))
+    .catch((err)=>console.log("Mogo db bağlantu hatası",err));
+
 const app = express();
 const myCache = new NodeCache({ stdTTL: 3600 });
 
