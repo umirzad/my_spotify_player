@@ -1,45 +1,52 @@
-const express=require('express')
-const cors=require('cors')
-const yts=require('yt-search')
-const NodeCache=require('node-cache');
+const express = require('express');
+const cors = require('cors');
+const yts = require('yt-search');
+const NodeCache = require('node-cache');
 
-const app=express();
-const myCache=new NodeCache({stdTTL:600});
-
+const app = express();
+// stdTTL: 600 (10 dakika tutar), checkperiod: 120 (temizlik süresi)
+const myCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
 
 app.use(cors());
 
+app.get('/', (req, res) => res.send("Sunucu Aktif! 🚀"));
 
-app.get('/search-with-images', async(req,res)=>{
-    const query=req.query.q;
-    if(!query) return res.json([]);
+app.get('/search-with-images', async (req, res) => {
+    // Sorguyu temizle (boşlukları sil ve küçük harfe çevir ki 'Tarkan' ile 'tarkan' aynı olsun)
+    const rawQuery = req.query.q;
+    if (!rawQuery) return res.json([]);
+    const query = rawQuery.trim().toLowerCase();
 
-    const coachedResult=myCache.get(query);
-    if(coachedResult){
-        console.log(`hafizadan getirildi: ${query}`);
+    // 1. CACHE KONTROLÜ
+    const cachedResult = myCache.get(query);
+    if (cachedResult) {
+        console.log(`>>> CACHE HIT (Hafızadan Geldi): ${query}`);
+        return res.json(cachedResult);
     }
 
-    try{
-        console.log(`youtube dan veri çekiliyor: ${query}`);
-        const result=await yts({query,hl:'tr',gl:'TR'});
-        const videos=result.videos.slice(0,12);
+    console.log(`>>> CACHE MISS (YouTube'a Gidiliyor): ${query}`);
 
-        const tracks=videos.map(v=>({
-            name:v.title,
-            artist:v.author.name,
-            youtubeThumb:v.thumbnail,
-            videoId:v.videoId,
-            duration:v.timestamp
+    try {
+        const result = await yts({ query, hl: 'tr', gl: 'TR' });
+        const videos = result.videos.slice(0, 10); // 12 yerine 10 yaparak hızı biraz daha zorladık
+
+        const tracks = videos.map(v => ({
+            name: v.title,
+            artist: v.author.name,
+            youtubeThumb: v.thumbnail,
+            videoId: v.videoId,
+            duration: v.timestamp
         }));
 
-        myCache.set(query,tracks);
-
+        // 2. CACHE'E KAYDET
+        myCache.set(query, tracks);
         res.json(tracks);
-    }catch(err){
-        res.status(500).json({error:'arama yapılamadı'});
 
+    } catch (err) {
+        console.error("Arama Hatası:", err.message);
+        res.status(500).json({ error: "Arama başarısız" });
     }
 });
 
-const PORT=process.env.PORT || 3000;
-app.listen(PORT,()=>console.log(`Sunucu ${PORT} portunda aktif`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif`));
