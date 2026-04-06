@@ -8,27 +8,26 @@ const myCache = new NodeCache({ stdTTL: 3600 });
 
 app.use(cors());
 
-const YOUTUBE_API_KEY = 'AIzaSyDbxxQwVkdKAXGaRB1x_DKYGjJu6s1Mwf4'; // Anahtarın burada kalsın
+// ANAHTARIN BAŞINDA VE SONUNDA TEK TIRNAK OLDUĞUNDAN EMİN OL
+const YOUTUBE_API_KEY = 'AIzaSyDbxxQwVkdKAXGaRB1x_DKYGjJu6s1Mwf4'; 
 
-app.get('/', (req, res) => res.send("YouTube API Sunucusu Aktif! 🚀"));
+app.get('/', (req, res) => res.send("Sunucu Ayakta! 🚀"));
 
-// 1. ARAMA ROTASI
 app.get('/search-with-images', async (req, res) => {
-    const query = req.query.q;
-    if (!query) return res.json([]);
-    const cleanQuery = query.trim().toLowerCase();
-
-    const cached = myCache.get(cleanQuery);
-    if (cached) return res.json(cached);
-
     try {
+        const query = req.query.q;
+        if (!query) return res.json([]);
+
+        const cached = myCache.get(query);
+        if (cached) return res.json(cached);
+
+        // AXIOS İSTEĞİ - HATA YAKALAMALI
         const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
             params: {
                 part: 'snippet',
-                q: cleanQuery,
+                q: query,
                 type: 'video',
                 maxResults: 10,
-                videoCategoryId: '10',
                 key: YOUTUBE_API_KEY
             }
         });
@@ -40,19 +39,22 @@ app.get('/search-with-images', async (req, res) => {
             videoId: item.id.videoId
         }));
 
-        myCache.set(cleanQuery, tracks);
+        myCache.set(query, tracks);
         res.json(tracks);
+
     } catch (err) {
-        res.status(500).json({ error: "Arama hatası" });
+        // Hata olduğunda boş liste dön ki Frontend patlamasın!
+        console.error("DETAYLI HATA:", err.response ? err.response.data : err.message);
+        res.status(500).json([]); // Burayı [] yaptık ki .map() hata vermesin
     }
 });
 
-// 2. ÇALMA ROTASI (EKSİK OLAN KISIM BURASIYDI!)
+// PLAY ROTASI
 app.get('/play', async (req, res) => {
-    const query = req.query.q;
-    if (!query) return res.json({});
-
     try {
+        const query = req.query.q;
+        if (!query) return res.json({});
+
         const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
             params: {
                 part: 'id',
@@ -63,15 +65,15 @@ app.get('/play', async (req, res) => {
             }
         });
 
-        if (response.data.items.length > 0) {
+        if (response.data.items && response.data.items.length > 0) {
             res.json({ id: response.data.items[0].id.videoId });
         } else {
-            res.status(404).json({ error: "Video bulunamadı" });
+            res.json({});
         }
     } catch (err) {
-        res.status(500).json({ error: "Çalma hatası" });
+        res.status(500).json({});
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif`));
+app.listen(PORT, () => console.log(`Sunucu aktif!`));
