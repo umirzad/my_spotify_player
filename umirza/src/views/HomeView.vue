@@ -2,6 +2,13 @@
   <div class="app">
     <header class="header">
       <SearchBar @search="search" />
+
+      <div class="user-actions">
+        <span class="user-email">{{ userEmail }}</span>
+        <button @click="hamdleLogout" class="logout-btn">
+            Çıkış yap
+        </button>
+      </div>
     </header>
 
     <main class="content">
@@ -35,12 +42,16 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router';
 import { watch } from 'vue';
 import SearchBar from '../components/searchBar.vue';
 import TrackList from '../components/trackList.vue';
 import PlayerBar from '../components/playerBar.vue';
 import { useMusic } from '../composables/useMusic';
 import { usePlayerStore } from '../stores/player';
+
+const router=useRouter();
+
 
 const { results, loading, search } = useMusic();
 const playerStore = usePlayerStore();
@@ -53,6 +64,12 @@ watch(results, (newResults) => {
 
 const handlePlay = (track) => {
   playerStore.setTrack(track);
+};
+
+const hamdleLogout=()=>{
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('userData');
+    router.push('/login')
 };
 </script>
 
@@ -94,6 +111,50 @@ body {
   color: #1db954;
   font-weight: bold;
 }
+.header-content{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+
+}
+
+.user-actions{
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-email{
+    color: #b3b3b3;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.logout-btn{
+    background-color: rgba(0,0,0,0.7);
+    color: white;
+    border: 1px solid #727272;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.logout-btn:hover{
+    border-color: white;
+    transform: scale(1.05);
+    background-color: #282828;
+}
+
+@media(max-width:600px){
+    .user-email{display: none;}
+}
+
+
+
 
 /* Kaydırma çubuğu tasarımı */
 ::-webkit-scrollbar { width: 8px; }
