@@ -29,17 +29,37 @@ export const usePlayerStore = defineStore('player', {
             this.currentTrack = track;
             this.currentTime = 0;
             
+            // 1. ÖNCELİK: Eğer şarkı nesnesinde zaten bir videoId varsa direkt çal
             if (track.videoId) {
+                console.log("Direkt videoId ile başlatılıyor:", track.videoId);
                 this.playVideo(track.videoId);
-            } else {
-                const searchTerm = `${track.artist} ${track.name}`;
+            } 
+            // 2. İKİNCİ ÖNCELİK: ID yoksa Render API üzerinden YouTube'da ara
+            else {
+                // Hem 'title' hem 'name' kontrolü yaparak veri kaçırmıyoruz
+                const trackName = track.title || track.name || "";
+                const artistName = track.artist || "";
+                const searchTerm = `${artistName} ${trackName}`.trim();
+
+                if (!searchTerm || searchTerm === "undefined undefined") {
+                    console.error("Hata: Arama terimi geçersiz!");
+                    return;
+                }
+
                 try {
-                    // RENDER API ADRESİN
+                    console.log("Render API üzerinden aranıyor:", searchTerm);
                     const res = await fetch(`https://my-spotify-player-tm8k.onrender.com/play?q=${encodeURIComponent(searchTerm)}`);
                     const data = await res.json();
-                    if (data.id) this.playVideo(data.id);
+                    
+                    if (data.id) {
+                        // Bulunan ID'yi nesneye işle (bir sonraki tıklamada API'ye gitmesin)
+                        track.videoId = data.id; 
+                        this.playVideo(data.id);
+                    } else {
+                        console.warn("YouTube üzerinde eşleşen bir video bulunamadı.");
+                    }
                 } catch (err) { 
-                    console.error("Video ID bulunamadı:", err); 
+                    console.error("Render API bağlantı hatası:", err); 
                 }
             }
         },
@@ -70,7 +90,8 @@ export const usePlayerStore = defineStore('player', {
                         'autoplay': 1, 
                         'controls': 0, 
                         'origin': window.location.origin,
-                        'enablejsapi': 1 
+                        'enablejsapi': 1,
+                        'widget_referrer': window.location.origin
                     },
                     events: {
                         'onReady': (e) => {
@@ -80,14 +101,17 @@ export const usePlayerStore = defineStore('player', {
                         },
                         'onStateChange': (e) => {
                             // 1 = Oynatılıyor, 2 = Duraklatıldı, 0 = Bitti
-                            this.isPlaying = (e.data === 1);
-                            if (e.data === 1) {
+                            this.isPlaying = (e.data === window.YT.PlayerState.PLAYING);
+                            if (e.data === window.YT.PlayerState.PLAYING) {
                                 this.duration = player.getDuration();
                             }
-                            // Şarkı bittiğinde sıradakine geç
-                            if (e.data === 0) {
+                            if (e.data === window.YT.PlayerState.ENDED) {
                                 this.playNextTrack();
                             }
+                        },
+                        'onError': (e) => {
+                            console.error("YouTube Player Hatası:", e.data);
+                            this.playNextTrack(); // Hata varsa sıradakine geç
                         }
                     }
                 });
@@ -108,7 +132,7 @@ export const usePlayerStore = defineStore('player', {
         playPreviousTrack() {
             if (this.history.length > 0) {
                 const lastTrack = this.history.pop();
-                this.setTrack(lastTrack, true); // true: geçmişe tekrar ekleme demek
+                this.setTrack(lastTrack, true);
             } else {
                 this.seekTo(0);
             }
@@ -116,13 +140,17 @@ export const usePlayerStore = defineStore('player', {
 
         playNextTrack() {
             if (this.allTracks.length > 0 && this.currentTrack) {
-                const currentIndex = this.allTracks.findIndex(t => t.videoId === this.currentTrack.videoId);
+                const currentIndex = this.allTracks.findIndex(t => 
+                    (t.videoId && t.videoId === this.currentTrack.videoId) || 
+                    (t.name === this.currentTrack.name) ||
+                    (t.title === this.currentTrack.title)
+                );
+                
                 let nextIndex;
-
                 if (currentIndex !== -1 && currentIndex < this.allTracks.length - 1) {
                     nextIndex = currentIndex + 1;
                 } else {
-                    nextIndex = 0; // Liste bittiyse başa dön
+                    nextIndex = 0;
                 }
                 this.setTrack(this.allTracks[nextIndex]);
             } else {
@@ -130,16 +158,13 @@ export const usePlayerStore = defineStore('player', {
             }
         },
 
-        toggleReplay() {
-            if (player && typeof player.seekTo === 'function') {
-                player.seekTo(0);
-                player.playVideo();
-            }
-        },
-
         togglePlay() {
             if (!player || typeof player.pauseVideo !== 'function') return;
-            this.isPlaying ? player.pauseVideo() : player.playVideo();
+            if (this.isPlaying) {
+                player.pauseVideo();
+            } else {
+                player.playVideo();
+            }
         },
 
         seekTo(sec) {
