@@ -12,7 +12,17 @@
       </div>
 
       <div class="actions">
+        <button 
+          v-if="playlistStore.selectedPlaylist" 
+          class="remove-btn" 
+          @click.stop="handleRemove(track)"
+          title="Listeden Kaldır"
+        >
+          🗑️
+        </button>
+
         <select 
+          v-else
           class="playlist-select" 
           @change="handleSelectChange($event, track)"
           title="Listeye Ekle"
@@ -36,80 +46,81 @@ import { usePlaylistStore } from '../stores/playlist';
 
 defineProps(['tracks']);
 const emit = defineEmits(['play']);
-
 const playlistStore = usePlaylistStore();
 
 const handleSelectChange = async (event, track) => {
   const playlistName = event.target.value;
   const userData = JSON.parse(localStorage.getItem('userData'));
 
-  if (!playlistName) return;
-
-  if (!userData || !userData.id) {
-    alert("Şarkı eklemek için giriş yapmalısın!");
-    event.target.value = ""; // Reset
-    return;
-  }
+  if (!playlistName || !userData?.id) return;
 
   try {
     const res = await fetch('https://my-spotify-player-tm8k.onrender.com/add-to-playlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: userData.id, playlistName, track })
+    });
+
+    if (res.ok) {
+      // ANINDA GÜNCELLE: Store'dan verileri tekrar çek
+      await playlistStore.fetchPlaylists(userData.id);
+      alert("Şarkı eklendi! ✨");
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    event.target.value = "";
+  }
+};
+
+const handleRemove = async (track) => {
+  const userData = JSON.parse(localStorage.getItem('userData'));
+  const playlistName = playlistStore.selectedPlaylist.name;
+
+  if (!confirm("Şarkıyı listeden silmek istiyor musunuz?")) return;
+
+  try {
+    const res = await fetch('https://my-spotify-player-tm8k.onrender.com/remove-from-playlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         userId: userData.id, 
-        playlistName: playlistName, // Backend'in beklediği isim buraya gidiyor
-        track: track 
+        playlistName: playlistName, 
+        videoId: track.videoId 
       })
     });
 
-    const data = await res.json();
-    
     if (res.ok) {
-      alert(`"${track.name}" şarkısı "${playlistName}" listesine eklendi! ✨`);
-    } else {
-      alert(data.message || "Bir hata oluştu.");
+      // ANINDA GÜNCELLE: Silinen şarkı ekrandan hemen gider
+      await playlistStore.fetchPlaylists(userData.id);
     }
   } catch (err) {
-    console.error("Ekleme hatası:", err);
-    alert("Sunucuya bağlanılamadı.");
-  } finally {
-    // Select kutusunu tekrar "+" haline getir ki bir daha seçilebilsin
-    event.target.value = "";
+    alert("Silinirken bir hata oluştu.");
   }
 };
 </script>
 
 <style scoped>
 .track-list { padding: 20px; max-width: 800px; margin: 0 auto; }
-
-.track-item { 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between;
-  padding: 12px; 
-  border-radius: 8px; 
-  transition: 0.2s; 
-  margin-bottom: 8px; 
-}
-
+.track-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-radius: 8px; transition: 0.2s; margin-bottom: 8px; }
 .track-item:hover { background: #282828; }
-
-.track-main { 
-  display: flex; 
-  align-items: center; 
-  flex: 1; 
-  cursor: pointer; 
-  min-width: 0;
-}
-
+.track-main { display: flex; align-items: center; flex: 1; cursor: pointer; min-width: 0; }
 .cover-wrapper { width: 50px; height: 50px; margin-right: 15px; flex-shrink: 0; border-radius: 4px; overflow: hidden; background: #333; }
 .cover { width: 100%; height: 100%; object-fit: cover; }
-
 .info { flex: 1; min-width: 0; padding-right: 10px; }
 .name { color: white; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .artist { color: #b3b3b3; font-size: 0.9em; }
 
-/* Şık Select Tasarımı */
+.remove-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: 0.2s;
+}
+.remove-btn:hover { opacity: 1; transform: scale(1.2); }
+
 .playlist-select {
   background: transparent;
   color: #b3b3b3;
@@ -119,24 +130,9 @@ const handleSelectChange = async (event, track) => {
   cursor: pointer;
   outline: none;
   font-size: 1.1rem;
-  transition: 0.2s;
-  appearance: none; /* Standart ok işaretini kaldırır */
   width: 35px;
   text-align: center;
 }
-
-.track-item:hover .playlist-select {
-  border-color: #1db954;
-  color: white;
-}
-
-.playlist-select:hover {
-  transform: scale(1.1);
-  background-color: #333;
-}
-
-option {
-  background: #181818;
-  color: white;
-}
+.playlist-select:hover { border-color: #1db954; color: white; }
+option { background: #181818; color: white; }
 </style>
