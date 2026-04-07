@@ -25,20 +25,19 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     playlists: [{
-        name: String,
-        tracks: Array
+        name: { type: String, required: true },
+        tracks: { type: Array, default: [] }
     }]
 });
 const User = mongoose.model('User', userSchema);
 
-// YOUTUBE API ANAHTARI
 const YOUTUBE_API_KEY = "AIzaSyDbxxQwVkdKAXGaRB1x_DKYGJjU6s1Mwf4"; 
 
 // --- ROTALAR ---
 
 app.get('/', (req, res) => res.send("Sunucu Ayakta! 🚀"));
 
-// 1. KAYIT OLMA (REGISTER)
+// 1. KAYIT OLMA
 app.post('/register', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -55,7 +54,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// 2. GİRİŞ YAPMA (LOGIN)
+// 2. GİRİŞ YAPMA
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -76,37 +75,60 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// 3. ÇALMA LİSTESİNE ŞARKI EKLEME (PLAYLIST ADD) - YENİ EKLENDİ!
-app.post('/add-to-playlist', async (req, res) => {
+// 3. TÜM PLAYLISTLERİ GETİR (YENİ!)
+app.get('/get-playlists/:userId', async (req, res) => {
     try {
-        const { userId, track } = req.body;
-
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı!" });
-
-        // Eğer kullanıcının hiç playlisti yoksa ilkini oluştur
-        if (!user.playlists || user.playlists.length === 0) {
-            user.playlists = [{ name: "Favorilerim", tracks: [] }];
-        }
-
-        // Şarkı zaten ekli mi kontrol et (videoId ile)
-        const isExist = user.playlists[0].tracks.some(t => t.videoId === track.videoId);
-        if (isExist) {
-            return res.status(400).json({ message: "Bu şarkı zaten listende var! 😊" });
-        }
-
-        // Şarkıyı ekle ve kaydet
-        user.playlists[0].tracks.push(track);
-        await user.save();
-
-        res.json({ message: "Şarkı başarıyla eklendi! ✨" });
+        const user = await User.findById(req.params.userId);
+        if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+        res.json(user.playlists);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Sunucu hatası oluştu." });
+        res.status(500).json({ error: err.message });
     }
 });
 
-// ARAMA ROTASI
+// 4. BOŞ PLAYLIST OLUŞTUR (YENİ!)
+app.post('/create-playlist', async (req, res) => {
+    try {
+        const { userId, playlistName } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+
+        // Liste zaten var mı kontrolü
+        const exists = user.playlists.find(p => p.name === playlistName);
+        if (exists) return res.status(400).json({ message: "Bu isimde bir liste zaten var!" });
+
+        user.playlists.push({ name: playlistName, tracks: [] });
+        await user.save();
+
+        res.status(201).json(user.playlists);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5. PLAYLIST'E ŞARKI EKLE (GÜNCELLENDİ!)
+app.post('/add-to-playlist', async (req, res) => {
+    try {
+        const { userId, playlistName, track } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+
+        const playlist = user.playlists.find(p => p.name === playlistName);
+        if (!playlist) return res.status(404).json({ message: "Liste bulunamadı" });
+
+        // Şarkı zaten listede var mı?
+        const isExist = playlist.tracks.some(t => t.videoId === track.videoId);
+        if (isExist) return res.status(400).json({ message: "Bu şarkı zaten listede var!" });
+
+        playlist.tracks.push(track);
+        await user.save();
+        res.json({ message: "Şarkı eklendi! 🎶" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ARAMA VE OYNATMA ROTARLARI (AYNEN KALSIN)
 app.get('/search-with-images', async (req, res) => {
     try {
         const query = req.query.q;
@@ -124,12 +146,9 @@ app.get('/search-with-images', async (req, res) => {
         }));
         myCache.set(query, tracks);
         res.json(tracks);
-    } catch (err) {
-        res.status(500).json([]);
-    }
+    } catch (err) { res.status(500).json([]); }
 });
 
-// OYNATMA (PLAY) ROTASI
 app.get('/play', async (req, res) => {
     try {
         const query = req.query.q;
@@ -139,12 +158,8 @@ app.get('/play', async (req, res) => {
         });
         if (response.data.items && response.data.items.length > 0) {
             res.json({ id: response.data.items[0].id.videoId });
-        } else {
-            res.json({});
-        }
-    } catch (err) {
-        res.status(500).json({});
-    }
+        } else { res.json({}); }
+    } catch (err) { res.status(500).json({}); }
 });
 
 const PORT = process.env.PORT || 3000;
