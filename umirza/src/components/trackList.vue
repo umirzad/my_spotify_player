@@ -12,23 +12,42 @@
       </div>
 
       <div class="actions">
-        <button class="add-btn" @click.stop="handleAddToPlaylist(track)" title="Kitaplığa Ekle">
-          ➕
-        </button>
+        <select 
+          class="playlist-select" 
+          @change="handleSelectChange($event, track)"
+          title="Listeye Ekle"
+        >
+          <option value="" disabled selected>+</option>
+          <option 
+            v-for="pl in playlistStore.playlists" 
+            :key="pl._id" 
+            :value="pl.name"
+          >
+            {{ pl.name }}
+          </option>
+        </select>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { usePlaylistStore } from '../stores/playlist';
+
 defineProps(['tracks']);
 const emit = defineEmits(['play']);
 
-const handleAddToPlaylist = async (track) => {
+const playlistStore = usePlaylistStore();
+
+const handleSelectChange = async (event, track) => {
+  const playlistName = event.target.value;
   const userData = JSON.parse(localStorage.getItem('userData'));
-  
+
+  if (!playlistName) return;
+
   if (!userData || !userData.id) {
     alert("Şarkı eklemek için giriş yapmalısın!");
+    event.target.value = ""; // Reset
     return;
   }
 
@@ -38,6 +57,7 @@ const handleAddToPlaylist = async (track) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         userId: userData.id, 
+        playlistName: playlistName, // Backend'in beklediği isim buraya gidiyor
         track: track 
       })
     });
@@ -45,13 +65,16 @@ const handleAddToPlaylist = async (track) => {
     const data = await res.json();
     
     if (res.ok) {
-      alert("Şarkı başarıyla eklendi! ✨");
+      alert(`"${track.name}" şarkısı "${playlistName}" listesine eklendi! ✨`);
     } else {
       alert(data.message || "Bir hata oluştu.");
     }
   } catch (err) {
     console.error("Ekleme hatası:", err);
     alert("Sunucuya bağlanılamadı.");
+  } finally {
+    // Select kutusunu tekrar "+" haline getir ki bir daha seçilebilsin
+    event.target.value = "";
   }
 };
 </script>
@@ -86,16 +109,34 @@ const handleAddToPlaylist = async (track) => {
 .name { color: white; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .artist { color: #b3b3b3; font-size: 0.9em; }
 
-.add-btn {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
+/* Şık Select Tasarımı */
+.playlist-select {
+  background: transparent;
+  color: #b3b3b3;
+  border: 1px solid #444;
+  border-radius: 20px;
+  padding: 4px 8px;
   cursor: pointer;
-  opacity: 0.3;
+  outline: none;
+  font-size: 1.1rem;
   transition: 0.2s;
+  appearance: none; /* Standart ok işaretini kaldırır */
+  width: 35px;
+  text-align: center;
+}
+
+.track-item:hover .playlist-select {
+  border-color: #1db954;
   color: white;
 }
 
-.track-item:hover .add-btn { opacity: 0.8; }
-.add-btn:hover { opacity: 1 !important; transform: scale(1.2); color: #1db954; }
+.playlist-select:hover {
+  transform: scale(1.1);
+  background-color: #333;
+}
+
+option {
+  background: #181818;
+  color: white;
+}
 </style>
