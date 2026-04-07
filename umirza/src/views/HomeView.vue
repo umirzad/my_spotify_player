@@ -1,8 +1,8 @@
 <template>
   <div class="app-layout">
     <aside class="sidebar">
-      <div class="logo">
-        <h2 @click="router.push('/')">umirza 🎶</h2>
+      <div class="logo" @click="router.push('/')">
+        <h2>umirza 🎶</h2>
       </div>
 
       <nav class="menu">
@@ -13,13 +13,15 @@
       <div class="library">
         <div class="library-header">
           <span>📚 Kitaplığın</span>
-          <button @click="handleCreatePlaylist" class="add-btn" title="Liste Oluştur">+</button>
+          <button @click="handleCreate" class="add-btn" title="Liste Oluştur">+</button>
         </div>
         
         <div class="playlist-list">
-          <div v-if="userPlaylists.length === 0" class="empty-pl">Henüz liste yok</div>
+          <div v-if="playlistStore.loading" class="pl-status">Yükleniyor...</div>
+          <div v-else-if="playlistStore.playlists.length === 0" class="empty-pl">Henüz liste yok</div>
+          
           <div 
-            v-for="pl in userPlaylists" 
+            v-for="pl in playlistStore.playlists" 
             :key="pl._id" 
             class="playlist-item"
           >
@@ -43,7 +45,7 @@
       </header>
 
       <div class="content-body">
-        <div v-if="loading" class="status">Şarkılar yükleniyor...</div>
+        <div v-if="loading" class="status">Şarkılar aranıyor...</div>
         
         <TrackList 
           v-else 
@@ -81,61 +83,42 @@ import TrackList from '../components/trackList.vue';
 import PlayerBar from '../components/playerBar.vue';
 import { useMusic } from '../composables/useMusic';
 import { usePlayerStore } from '../stores/player';
+import { usePlaylistStore } from '../stores/playlist'; // Playlist Store eklendi
 
 const router = useRouter();
 const { results, loading, search } = useMusic();
 const playerStore = usePlayerStore();
+const playlistStore = usePlaylistStore(); // Store'u tanımla
 
-const userPlaylists = ref([]);
 const userEmail = ref('');
+const userData = JSON.parse(localStorage.getItem('userData'));
 
-// Kullanıcı bilgilerini ve playlistleri çek
-onMounted(async () => {
-  const userData = JSON.parse(localStorage.getItem('userData'));
+onMounted(() => {
   if (userData) {
     userEmail.value = userData.email;
-    await fetchPlaylists(userData.id);
+    // Sayfa açıldığında playlistleri Store üzerinden çek
+    playlistStore.fetchPlaylists(userData.id);
+  } else {
+    router.push('/login');
   }
 });
 
-const fetchPlaylists = async (userId) => {
-  try {
-    // Backend'de bu rotayı az önce konuştuk, eklemeyi unutma!
-    const res = await fetch(`https://my-spotify-player-tm8k.onrender.com/get-playlists/${userId}`);
-    if (res.ok) {
-      userPlaylists.value = await res.json();
-    }
-  } catch (err) {
-    console.error("Playlistler yüklenemedi", err);
-  }
-};
-
-const handleCreatePlaylist = async () => {
+const handleCreate = async () => {
   const name = prompt("Yeni çalma listesi adı:");
-  if (!name) return;
-
-  const userData = JSON.parse(localStorage.getItem('userData'));
-  try {
-    const res = await fetch('https://my-spotify-player-tm8k.onrender.com/create-playlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: userData.id, playlistName: name })
-    });
-    if (res.ok) {
-      await fetchPlaylists(userData.id);
-    }
-  } catch (err) {
-    alert("Liste oluşturulamadı.");
+  if (name && userData?.id) {
+    const success = await playlistStore.createPlaylist(userData.id, name);
+    if (!success) alert("Liste oluşturulurken bir sorun çıktı.");
   }
 };
-
-watch(results, (newResults) => {
-  playerStore.setTracks(newResults);
-});
 
 const handlePlay = (track) => {
   playerStore.setTrack(track);
 };
+
+// Arama sonuçları değiştikçe Store'daki listeyi güncelle (Sonraki/Önceki şarkı için)
+watch(results, (newResults) => {
+  playerStore.setTracks(newResults);
+});
 
 const handleLogout = () => {
   localStorage.removeItem('userToken');
@@ -148,25 +131,32 @@ const handleLogout = () => {
 .app-layout {
   display: flex;
   height: 100vh;
-  overflow: hidden; /* Dışarı taşmayı engelle */
+  overflow: hidden;
   background-color: #000;
 }
 
 /* SIDEBAR STİLLERİ */
 .sidebar {
-  width: 240px;
+  width: 260px;
   background-color: #000;
   display: flex;
   flex-direction: column;
-  padding: 15px;
-  gap: 20px;
+  padding: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 .logo h2 {
   color: #1db954;
-  margin: 0 0 10px 10px;
+  padding: 10px;
+  margin: 0;
   cursor: pointer;
+}
+
+.menu {
+  background: #121212;
+  border-radius: 8px;
+  padding: 10px;
 }
 
 .menu-item {
@@ -177,7 +167,7 @@ const handleLogout = () => {
   transition: 0.3s;
 }
 
-.menu-item.active, .menu-item:hover {
+.menu-item:hover, .menu-item.active {
   color: white;
 }
 
@@ -197,18 +187,19 @@ const handleLogout = () => {
   align-items: center;
   color: #b3b3b3;
   font-weight: bold;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 .add-btn {
   background: none;
   border: none;
   color: #b3b3b3;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   cursor: pointer;
+  line-height: 1;
 }
 
-.add-btn:hover { color: white; }
+.add-btn:hover { color: white; transform: scale(1.1); }
 
 .playlist-list {
   overflow-y: auto;
@@ -216,11 +207,14 @@ const handleLogout = () => {
 }
 
 .playlist-item {
-  padding: 10px;
+  padding: 12px;
   color: #b3b3b3;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .playlist-item:hover {
@@ -228,25 +222,33 @@ const handleLogout = () => {
   color: white;
 }
 
-/* PROFİL KISMI */
+.pl-status, .empty-pl {
+  color: #727272;
+  font-size: 0.8rem;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* PROFİL KART */
 .user-profile {
   background: #121212;
   border-radius: 8px;
-  padding: 12px;
+  padding: 15px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 15px;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
-  background: #535353;
+  width: 42px;
+  height: 42px;
+  background: #1db954;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  font-size: 1.2rem;
 }
 
 .user-info {
@@ -254,7 +256,7 @@ const handleLogout = () => {
   flex-direction: column;
 }
 
-.email { font-size: 0.85rem; font-weight: bold; }
+.email { font-size: 0.9rem; font-weight: bold; color: white; }
 
 .logout-link {
   background: none;
@@ -264,13 +266,15 @@ const handleLogout = () => {
   text-align: left;
   padding: 0;
   cursor: pointer;
-  text-decoration: underline;
+  margin-top: 4px;
 }
 
-/* ANA İÇERİK STİLLERİ */
+.logout-link:hover { text-decoration: underline; color: white; }
+
+/* ANA İÇERİK */
 .main-content {
   flex: 1;
-  background: linear-gradient(to bottom, #1e1e1e, #121212);
+  background: linear-gradient(to bottom, #222222, #121212);
   margin: 8px 8px 8px 0;
   border-radius: 8px;
   display: flex;
@@ -279,27 +283,28 @@ const handleLogout = () => {
 }
 
 .top-bar {
-  padding: 15px 30px;
+  padding: 20px 32px;
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(18, 18, 18, 0.5);
-  backdrop-filter: blur(10px);
+  background: rgba(18, 18, 18, 0.7);
+  backdrop-filter: blur(15px);
 }
 
 .content-body {
-  padding: 20px;
+  padding: 0 32px 32px 32px;
 }
 
 .status {
   text-align: center;
-  margin-top: 50px;
+  margin-top: 80px;
   color: #1db954;
+  font-size: 1.1rem;
 }
 
-/* Kaydırma Çubuğu */
-::-webkit-scrollbar { width: 8px; }
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #555; }
-::-webkit-scrollbar-thumb:hover { background: #1db954; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #666; }
 </style>
