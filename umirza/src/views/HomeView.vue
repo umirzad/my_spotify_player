@@ -50,9 +50,17 @@
       <div class="content-body">
         <div v-if="playlistStore.selectedPlaylist" class="playlist-view">
           <div class="playlist-header-info">
-            <h1>{{ playlistStore.selectedPlaylist.name }}</h1>
-            <p>{{ playlistStore.selectedPlaylist.tracks?.length || 0 }} şarkı</p>
+            <div class="header-text">
+              <h1>{{ playlistStore.selectedPlaylist.name }}</h1>
+              <p>{{ playlistStore.selectedPlaylist.tracks?.length || 0 }} şarkı</p>
+            </div>
+            
+            <div class="playlist-actions">
+              <button @click="playlistStore.renamePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="edit-btn">✏️</button>
+              <button @click="playlistStore.deletePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="delete-btn">🗑️</button>
+            </div>
           </div>
+          
           <TrackList 
             :tracks="playlistStore.selectedPlaylist.tracks" 
             @play="handlePlay" 
@@ -117,13 +125,11 @@ onMounted(() => {
   }
 });
 
-// Arama yapıldığında playlist görünümünden çıkıp arama sonuçlarına dön
 const handleSearch = (query) => {
   playlistStore.clearSelection();
   search(query);
 };
 
-// Ana sayfa logosuna veya ismine basınca playlisti kapat
 const goHome = () => {
   playlistStore.clearSelection();
 };
@@ -139,7 +145,6 @@ const handlePlay = (track) => {
   playerStore.setTrack(track);
 };
 
-// Çalma listesi sırası (Next/Prev) için Store'u güncelle
 watch([results, () => playlistStore.selectedPlaylist], () => {
   if (playlistStore.selectedPlaylist) {
     playerStore.setTracks(playlistStore.selectedPlaylist.tracks);
@@ -156,25 +161,48 @@ const handleLogout = () => {
 </script>
 
 <style scoped>
-/* Mevcut stillerine ek olarak şunları güncelle/ekle */
+/* CSS Temel Yapı */
 .app-layout { display: flex; height: 100vh; overflow: hidden; background-color: #000; }
 .sidebar { width: 260px; background-color: #000; display: flex; flex-direction: column; padding: 12px; gap: 10px; flex-shrink: 0; }
 .menu { background: #121212; border-radius: 8px; padding: 10px; }
 .menu-item { padding: 12px; color: #b3b3b3; font-weight: bold; cursor: pointer; transition: 0.3s; }
 .menu-item.active, .menu-item:hover { color: white; }
 .library { flex: 1; background: #121212; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
-.playlist-item { padding: 12px; color: #b3b3b3; cursor: pointer; border-radius: 6px; transition: 0.2s; }
+.playlist-item { padding: 12px; color: #b3b3b3; cursor: pointer; border-radius: 6px; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .playlist-item.active { background: #282828; color: white; }
 .playlist-item:hover { color: white; }
 
 .main-content { flex: 1; background: linear-gradient(to bottom, #222222, #121212); margin: 8px 8px 8px 0; border-radius: 8px; display: flex; flex-direction: column; overflow-y: auto; }
 
-/* Playlist Başlık Kısmı */
+/* Playlist Başlık ve Aksiyonlar */
 .playlist-header-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
   padding: 40px 0 20px 0;
   margin-bottom: 20px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .playlist-header-info h1 { font-size: 3.5rem; margin: 0; color: white; }
 .playlist-header-info p { color: #b3b3b3; font-weight: bold; margin-top: 10px; }
+
+.playlist-actions { display: flex; gap: 10px; margin-bottom: 10px; }
+.edit-btn, .delete-btn {
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+.edit-btn:hover { background: #1db954; }
+.delete-btn:hover { background: #e91e63; }
+
+.user-profile { background: #121212; border-radius: 8px; padding: 15px; display: flex; align-items: center; gap: 15px; }
+.avatar { width: 42px; height: 42px; background: #1db954; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 </style>

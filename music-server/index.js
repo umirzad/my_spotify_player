@@ -12,7 +12,6 @@ const myCache = new NodeCache({ stdTTL: 3600 });
 app.use(cors());
 app.use(express.json()); 
 
-// MONGODB BAĞLANTISI
 const mongoURI = "mongodb+srv://ubeydmirzad_db_user:QHHnFpKDkDYQt2cZ@umirza.ya2e3sm.mongodb.net/muzik_veritabani?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI)
@@ -30,6 +29,8 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 
 const YOUTUBE_API_KEY = "AIzaSyDbxxQwVkdKAXGaRB1x_DKYGJjU6s1Mwf4"; 
+
+// --- ROTALAR ---
 
 app.get('/', (req, res) => res.send("Sunucu Ayakta! 🚀"));
 
@@ -78,6 +79,33 @@ app.post('/create-playlist', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// YENİ: PLAYLIST SİLME
+app.post('/delete-playlist', async (req, res) => {
+    try {
+        const { userId, playlistName } = req.body;
+        const user = await User.findById(userId);
+        user.playlists = user.playlists.filter(p => p.name !== playlistName);
+        await user.save();
+        res.json({ message: "Playlist silindi! 🗑️" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// YENİ: PLAYLIST ADI GÜNCELLEME
+app.post('/rename-playlist', async (req, res) => {
+    try {
+        const { userId, oldName, newName } = req.body;
+        const user = await User.findById(userId);
+        const playlist = user.playlists.find(p => p.name === oldName);
+        if (playlist) {
+            playlist.name = newName;
+            await user.save();
+            res.json({ message: "Playlist adı güncellendi! ✅" });
+        } else {
+            res.status(404).json({ message: "Liste bulunamadı" });
+        }
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/add-to-playlist', async (req, res) => {
     try {
         const { userId, playlistName, track } = req.body;
@@ -92,7 +120,6 @@ app.post('/add-to-playlist', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ŞARKI SİLME ROTASI (YENİ)
 app.post('/remove-from-playlist', async (req, res) => {
     try {
         const { userId, playlistName, videoId } = req.body;
