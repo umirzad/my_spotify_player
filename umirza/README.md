@@ -25,5 +25,5 @@ npm run build
 `.env` dosyasina su degiskeni ekleyin:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:3000
+VUE_APP_API_BASE_URL=http://localhost:3000
 ```
