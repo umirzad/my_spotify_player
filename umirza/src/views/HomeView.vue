@@ -40,7 +40,10 @@
             <h1>{{ displayName }}</h1>
             <p class="hero-meta">{{ playlistStore.playlists.length }} playlist • {{ totalTrackCount }} sarki</p>
           </div>
-          <button class="ghost-btn" @click="goTab('library')">Kitapligima git</button>
+          <div class="hero-actions">
+            <button class="ghost-btn" @click="continueListening">Devam et</button>
+            <button class="ghost-btn" @click="goTab('library')">Kitapligima git</button>
+          </div>
         </header>
 
         <section class="section-block">
@@ -49,6 +52,27 @@
             <span>{{ personalizedTracks.length }} sarki</span>
           </div>
           <TrackList :tracks="personalizedTracks" @play="handlePlay" />
+          <div v-if="!personalizedTracks.length" class="empty-card">
+            Sana ozel oneriler olusturmak icin birkac sarki ara ve dinle.
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-head">
+            <h2>Son dinlenenler</h2>
+            <span>{{ playerStore.recentTracks.length }} kayit</span>
+          </div>
+          <TrackList :tracks="playerStore.recentTracks.slice(0, 8)" @play="handlePlay" />
+          <div v-if="!playerStore.recentTracks.length" class="empty-card">Henuz dinleme gecmisi yok.</div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-head">
+            <h2>Begendiklerin</h2>
+            <span>{{ playerStore.likedTracks.length }} sarki</span>
+          </div>
+          <TrackList :tracks="playerStore.likedTracks.slice(0, 8)" @play="handlePlay" />
+          <div v-if="!playerStore.likedTracks.length" class="empty-card">Begendiginde burada gorunecek.</div>
         </section>
 
         <section class="section-block">
@@ -79,11 +103,27 @@
           <button class="add-btn" @click="handleCreate">+ Playlist olustur</button>
         </div>
 
+        <section class="section-block">
+          <div class="library-tools">
+            <input v-model="libraryQuery" placeholder="Playlist ara..." class="library-input">
+            <select v-model="librarySort" class="library-select">
+              <option value="recent">En son guncellenen</option>
+              <option value="name-asc">Isme gore A-Z</option>
+              <option value="name-desc">Isme gore Z-A</option>
+              <option value="tracks-desc">En cok sarki</option>
+            </select>
+          </div>
+        </section>
+
         <div class="library-layout">
           <div class="playlist-list-panel">
-            <div v-if="playlistStore.loading" class="status">Yukleniyor...</div>
+            <div v-if="playlistStore.loading" class="status">
+              <Skeleton width="100%" height="2.2rem" class="mb" />
+              <Skeleton width="100%" height="2.2rem" class="mb" />
+              <Skeleton width="100%" height="2.2rem" />
+            </div>
             <button
-              v-for="pl in playlistStore.playlists"
+              v-for="pl in filteredSortedPlaylists"
               :key="pl._id || pl.name"
               class="playlist-row"
               :class="{ active: playlistStore.selectedPlaylist?._id === pl._id }"
@@ -92,8 +132,8 @@
               <span>{{ pl.name }}</span>
               <small>{{ pl.tracks?.length || 0 }}</small>
             </button>
-            <div v-if="!playlistStore.loading && playlistStore.playlists.length === 0" class="status">
-              Henuz liste yok.
+            <div v-if="!playlistStore.loading && filteredSortedPlaylists.length === 0" class="status">
+              Filtreye uygun playlist yok.
             </div>
           </div>
 
@@ -123,8 +163,28 @@
           <h2>Arama</h2>
         </div>
         <SearchBar @search="handleSearch" />
-        <div v-if="loading" class="status">Sarkilar araniyor...</div>
+        <div v-if="loading" class="status">
+          <Skeleton width="100%" height="3.5rem" class="mb" />
+          <Skeleton width="100%" height="3.5rem" class="mb" />
+          <Skeleton width="100%" height="3.5rem" />
+        </div>
+        <div v-else-if="error" class="empty-card">
+          <p>{{ error }}</p>
+          <Button label="Tekrar dene" size="small" @click="retrySearch" />
+        </div>
+        <div v-else-if="lastQuery && !results.length" class="empty-card">
+          Sonuc bulunamadi. Baska bir anahtar kelime dene.
+        </div>
         <TrackList v-else :tracks="results" @play="handlePlay" />
+      </section>
+
+      <section class="section-block queue-box">
+        <div class="section-head">
+          <h2>Sirada calacaklar</h2>
+          <span>{{ nextUpTracks.length }} sarki</span>
+        </div>
+        <TrackList :tracks="nextUpTracks.slice(0, 5)" @play="handlePlay" />
+        <div v-if="!nextUpTracks.length" class="empty-card">Kuyruk bos. Arama yapip sarki oynat.</div>
       </section>
     </main>
 
@@ -141,13 +201,16 @@
       :duration="playerStore.duration"
       :volume="playerStore.volume"
       :isReplay="playerStore.isReplay"
+      :isShuffle="playerStore.isShuffle"
+      :isLiked="playerStore.isLiked(playerStore.currentTrack)"
       @toggle="playerStore.togglePlay"
       @seek="playerStore.seekTo"
       @volumeChange="playerStore.setVolume"
       @toggleReplay="playerStore.toggleReplay"
+      @toggleShuffle="playerStore.toggleShuffle"
+      @toggleLike="playerStore.toggleLike(playerStore.currentTrack)"
       @prev="playerStore.playPreviousTrack"
       @next="playerStore.playNextTrack"
-      @random="playerStore.playRandomTrack"
     />
 
     <div id="youtube-player" style="display: none;"></div>
@@ -162,6 +225,7 @@ import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import ConfirmDialog from 'primevue/confirmdialog';
 import Toast from 'primevue/toast';
+import Skeleton from 'primevue/skeleton';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import SearchBar from '../components/searchBar.vue';
@@ -173,7 +237,7 @@ import { usePlaylistStore } from '../stores/playlist';
 import { getUserData } from '../utils/auth';
 
 const router = useRouter();
-const { results, loading, search } = useMusic();
+const { results, loading, error, lastQuery, search, retrySearch } = useMusic();
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const confirm = useConfirm();
@@ -185,6 +249,8 @@ const showCreateDialog = ref(false);
 const newPlaylistName = ref('');
 const showRenameDialog = ref(false);
 const renamePlaylistName = ref('');
+const libraryQuery = ref('');
+const librarySort = ref('recent');
 
 const displayName = computed(() => {
   const email = userData?.email || '';
@@ -206,11 +272,37 @@ const personalizedTracks = computed(() => {
   return Array.from(map.values()).slice(0, 12);
 });
 
+const filteredSortedPlaylists = computed(() => {
+  const q = libraryQuery.value.trim().toLowerCase();
+  const list = playlistStore.playlists.filter((pl) =>
+    !q || (pl.name || '').toLowerCase().includes(q),
+  );
+
+  return [...list].sort((a, b) => {
+    if (librarySort.value === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+    if (librarySort.value === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+    if (librarySort.value === 'tracks-desc') return (b.tracks?.length || 0) - (a.tracks?.length || 0);
+    return 0;
+  });
+});
+
+const nextUpTracks = computed(() => {
+  if (!playerStore.currentTrack || !playerStore.allTracks.length) return [];
+  const currentIndex = playerStore.allTracks.findIndex((track) =>
+    track.videoId && playerStore.currentTrack.videoId
+      ? track.videoId === playerStore.currentTrack.videoId
+      : (track.name || track.title) === (playerStore.currentTrack.name || playerStore.currentTrack.title),
+  );
+  if (currentIndex === -1) return playerStore.allTracks.slice(0, 5);
+  return [...playerStore.allTracks.slice(currentIndex + 1), ...playerStore.allTracks.slice(0, currentIndex)];
+});
+
 onMounted(async () => {
   if (!userData?.id) {
     router.push('/login');
     return;
   }
+  playerStore.hydrateFromStorage();
   await playlistStore.fetchPlaylists(userData.id);
   if (playlistStore.playlists.length > 0) {
     playlistStore.selectPlaylist(playlistStore.playlists[0]);
@@ -235,6 +327,18 @@ const handleSearch = (query) => {
   activeTab.value = 'search';
   playlistStore.clearSelection();
   search(query);
+};
+
+const continueListening = () => {
+  if (playerStore.currentTrack) {
+    playerStore.setTrack(playerStore.currentTrack);
+    return;
+  }
+  if (playerStore.recentTracks.length > 0) {
+    playerStore.setTrack(playerStore.recentTracks[0]);
+    return;
+  }
+  toast.add({ severity: 'info', summary: 'Bilgi', detail: 'Devam etmek icin once bir sarki ac.', life: 2200 });
 };
 
 const handleCreate = () => {
@@ -386,6 +490,11 @@ const askLogoutConfirm = () => {
   align-items: center;
 }
 
+.hero-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .hero-card h1 {
   margin: 0;
   font-size: 2rem;
@@ -401,6 +510,10 @@ const askLogoutConfirm = () => {
   background: #181818;
   border-radius: 14px;
   padding: 14px;
+}
+
+.queue-box {
+  margin-bottom: 10px;
 }
 
 .section-head {
@@ -443,10 +556,32 @@ const askLogoutConfirm = () => {
   padding: 10px;
 }
 
+.mb {
+  margin-bottom: 8px;
+}
+
 .library-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 14px;
+}
+
+.library-tools {
+  display: flex;
+  gap: 10px;
+}
+
+.library-input,
+.library-select {
+  background: #202020;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.library-input {
+  flex: 1;
 }
 
 .playlist-list-panel,

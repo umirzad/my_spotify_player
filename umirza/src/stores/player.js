@@ -3,6 +3,8 @@ import { API_BASE_URL } from '../config/api';
 
 let player = null;
 let timer = null;
+const LIKED_TRACKS_KEY = 'likedTracks';
+const RECENT_TRACKS_KEY = 'recentTracks';
 
 export const usePlayerStore = defineStore('player', {
     state: () => ({
@@ -12,11 +14,31 @@ export const usePlayerStore = defineStore('player', {
         duration: 0,
         volume: 50,
         isReplay: false,
+        isShuffle: false,
         allTracks: [],
-        history: []
+        history: [],
+        likedTracks: [],
+        recentTracks: []
     }),
 
     actions: {
+        hydrateFromStorage() {
+            try {
+                const likedRaw = localStorage.getItem(LIKED_TRACKS_KEY);
+                const recentRaw = localStorage.getItem(RECENT_TRACKS_KEY);
+                this.likedTracks = likedRaw ? JSON.parse(likedRaw) : [];
+                this.recentTracks = recentRaw ? JSON.parse(recentRaw) : [];
+            } catch (err) {
+                this.likedTracks = [];
+                this.recentTracks = [];
+            }
+        },
+
+        persistTracks() {
+            localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(this.likedTracks));
+            localStorage.setItem(RECENT_TRACKS_KEY, JSON.stringify(this.recentTracks));
+        },
+
         setTracks(tracks) { 
             this.allTracks = tracks; 
         },
@@ -29,6 +51,7 @@ export const usePlayerStore = defineStore('player', {
 
             this.currentTrack = track;
             this.currentTime = 0;
+            this.addRecentTrack(track);
             
             // 1. ÖNCELİK: Eğer şarkı nesnesinde zaten bir videoId varsa direkt çal
             if (track.videoId) {
@@ -145,6 +168,10 @@ export const usePlayerStore = defineStore('player', {
 
         playNextTrack() {
             if (this.allTracks.length > 0 && this.currentTrack) {
+                if (this.isShuffle) {
+                    this.playRandomTrack();
+                    return;
+                }
                 const currentIndex = this.allTracks.findIndex(t => 
                     (t.videoId && t.videoId === this.currentTrack.videoId) || 
                     (t.name === this.currentTrack.name) ||
@@ -187,6 +214,34 @@ export const usePlayerStore = defineStore('player', {
 
         toggleReplay() {
             this.isReplay = !this.isReplay;
+        },
+
+        toggleShuffle() {
+            this.isShuffle = !this.isShuffle;
+        },
+
+        isLiked(track) {
+            if (!track) return false;
+            return this.likedTracks.some((item) => item.videoId === track.videoId);
+        },
+
+        toggleLike(track) {
+            if (!track) return;
+            if (this.isLiked(track)) {
+                this.likedTracks = this.likedTracks.filter((item) => item.videoId !== track.videoId);
+            } else {
+                this.likedTracks = [track, ...this.likedTracks].slice(0, 100);
+            }
+            this.persistTracks();
+        },
+
+        addRecentTrack(track) {
+            if (!track || !track.videoId) return;
+            this.recentTracks = [
+                track,
+                ...this.recentTracks.filter((item) => item.videoId !== track.videoId),
+            ].slice(0, 40);
+            this.persistTracks();
         },
 
         startTimer() {

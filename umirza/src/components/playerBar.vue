@@ -12,13 +12,14 @@
       <div class="main-buttons">
         <button @click="$emit('prev')" class="extra-btn">⏮️</button>
         
-        <button @click="$emit('toggleReplay')" class="extra-btn">↩️</button>
+        <button @click="$emit('toggleReplay')" class="extra-btn" :class="{ active: isReplay }">↩️</button>
         
         <button @click="$emit('toggle')" class="play-btn">{{ isPlaying ? '⏸️' : '▶️' }}</button>
         
         <button @click="$emit('next')" class="extra-btn">⏭️</button>
         
-        <button @click="$emit('random')" class="extra-btn">🔀</button>
+        <button @click="$emit('toggleShuffle')" class="extra-btn" :class="{ active: isShuffle }">🔀</button>
+        <button @click="$emit('toggleLike')" class="extra-btn" :class="{ active: isLiked }">❤</button>
       </div>
       
       <div class="progress-box">
@@ -35,9 +36,8 @@
 </template>
 
 <script setup>
-defineProps(['track', 'isPlaying', 'currentTime', 'duration', 'volume', 'isReplay']);
-// Emit listesini güncelledik
-defineEmits(['next', 'toggle', 'prev', 'seek', 'volumeChange', 'toggleReplay', 'random']);
+defineProps(['track', 'isPlaying', 'currentTime', 'duration', 'volume', 'isReplay', 'isShuffle', 'isLiked']);
+defineEmits(['next', 'toggle', 'prev', 'seek', 'volumeChange', 'toggleReplay', 'toggleShuffle', 'toggleLike']);
 
 const formatTime = (s) => {
   const m = Math.floor(s / 60);
@@ -59,6 +59,7 @@ const formatTime = (s) => {
 .play-btn { background: white; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
 .extra-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.7; transition: 0.2s; }
 .extra-btn:hover { opacity: 1; transform: scale(1.1); }
+.extra-btn.active { opacity: 1; color: #1db954; }
 .progress-box { width: 100%; display: flex; align-items: center; gap: 10px; color: #a7a7a7; font-size: 11px; }
 .progress-slider { flex: 1; accent-color: #1db954; cursor: pointer; }
 .volume { width: 30%; display: flex; justify-content: flex-end; }

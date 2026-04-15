@@ -1,6 +1,4 @@
 <template>
-  <Toast />
-  <ConfirmDialog />
   <div class="track-list">
     <div v-for="track in tracks" :key="track.videoId" class="track-item">
       <div class="track-main" @click="$emit('play', track)">
@@ -44,8 +42,6 @@
 </template>
 
 <script setup>
-import ConfirmDialog from 'primevue/confirmdialog';
-import Toast from 'primevue/toast';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { usePlaylistStore } from '../stores/playlist';
