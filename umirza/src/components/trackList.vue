@@ -43,6 +43,8 @@
 
 <script setup>
 import { usePlaylistStore } from '../stores/playlist';
+import { API_BASE_URL } from '../config/api';
+import { authHeaders, getUserData } from '../utils/auth';
 
 defineProps(['tracks']);
 const emit = defineEmits(['play']);
@@ -50,14 +52,14 @@ const playlistStore = usePlaylistStore();
 
 const handleSelectChange = async (event, track) => {
   const playlistName = event.target.value;
-  const userData = JSON.parse(localStorage.getItem('userData'));
+  const userData = getUserData();
 
   if (!playlistName || !userData?.id) return;
 
   try {
-    const res = await fetch('https://my-spotify-player-tm8k.onrender.com/add-to-playlist', {
+    const res = await fetch(`${API_BASE_URL}/add-to-playlist`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ userId: userData.id, playlistName, track })
     });
 
@@ -74,15 +76,15 @@ const handleSelectChange = async (event, track) => {
 };
 
 const handleRemove = async (track) => {
-  const userData = JSON.parse(localStorage.getItem('userData'));
+  const userData = getUserData();
   const playlistName = playlistStore.selectedPlaylist.name;
 
   if (!confirm("Şarkıyı listeden silmek istiyor musunuz?")) return;
 
   try {
-    const res = await fetch('https://my-spotify-player-tm8k.onrender.com/remove-from-playlist', {
+    const res = await fetch(`${API_BASE_URL}/remove-from-playlist`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ 
         userId: userData.id, 
         playlistName: playlistName, 

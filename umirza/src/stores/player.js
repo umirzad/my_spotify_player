@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { API_BASE_URL } from '../config/api';
 
 let player = null;
 let timer = null;
@@ -48,7 +49,7 @@ export const usePlayerStore = defineStore('player', {
 
                 try {
                     console.log("Render API üzerinden aranıyor:", searchTerm);
-                    const res = await fetch(`https://my-spotify-player-tm8k.onrender.com/play?q=${encodeURIComponent(searchTerm)}`);
+                    const res = await fetch(`${API_BASE_URL}/play?q=${encodeURIComponent(searchTerm)}`);
                     const data = await res.json();
                     
                     if (data.id) {

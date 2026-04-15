@@ -33,6 +33,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { API_BASE_URL } from '../config/api';
 
 const isLogin=ref(true);
 const email=ref('');
@@ -43,7 +44,7 @@ const router=useRouter();
 
 const handleSubmit=async()=>{
     const endpoint=isLogin.value? '/login':'/register';
-    const API_URL=`https://my-spotify-player-tm8k.onrender.com${endpoint}`;
+    const API_URL=`${API_BASE_URL}${endpoint}`;
 
     try{
         const res=await fetch(API_URL,{
@@ -59,7 +60,7 @@ const handleSubmit=async()=>{
             message.value=data.message || 'Bir hata oluştu';
         }else{
             isError.value=false;
-            message.value=isLogin.value?'Giriş Bşarılı! Yönlendiriliyorsun ...':'Kayıt başarılı ! Şimdi giriş yapabilirsin.';
+            message.value=isLogin.value?'Giris basarili! Yonlendiriliyorsun...':'Kayit basarili! Simdi giris yapabilirsin.';
 
             if(isLogin.value){
                 localStorage.setItem('userToken',data.token);
@@ -72,7 +73,7 @@ const handleSubmit=async()=>{
         }
     }catch(err){
         isError.value=true;
-        message.value="Sunucuya bağlanamadı";
+        message.value="Sunucuya baglanamadi";
     }
 }
 
@@ -125,7 +126,7 @@ const handleSubmit=async()=>{
 }
 
 .input-group input:focus{
-    border: color #1db954;
+    border-color: #1db954;
 }
 
 .auth-button{
@@ -165,5 +166,5 @@ const handleSubmit=async()=>{
 }
 
 .error{color: #f15555;}
-.succes{color: #1db954;}
+.success{color: #1db954;}
 </style>

@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia';
+import { API_BASE_URL } from '../config/api';
+import { authHeaders } from '../utils/auth';
 
 export const usePlaylistStore = defineStore('playlist', {
   state: () => ({
@@ -12,7 +14,11 @@ export const usePlaylistStore = defineStore('playlist', {
       if (!userId) return;
       this.loading = true;
       try {
-        const res = await fetch(`https://my-spotify-player-tm8k.onrender.com/get-playlists/${userId}`);
+        const res = await fetch(`${API_BASE_URL}/get-playlists/${userId}`, {
+          headers: {
+            ...authHeaders(),
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           this.playlists = data;
@@ -30,9 +36,9 @@ export const usePlaylistStore = defineStore('playlist', {
 
     async createPlaylist(userId, name) {
       try {
-        const res = await fetch('https://my-spotify-player-tm8k.onrender.com/create-playlist', {
+        const res = await fetch(`${API_BASE_URL}/create-playlist`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ userId, playlistName: name })
         });
         if (res.ok) {
@@ -46,9 +52,9 @@ export const usePlaylistStore = defineStore('playlist', {
     async deletePlaylist(userId, playlistName) {
       if (!confirm(`"${playlistName}" listesini silmek istediğine emin misin?`)) return;
       try {
-        const res = await fetch('https://my-spotify-player-tm8k.onrender.com/delete-playlist', {
+        const res = await fetch(`${API_BASE_URL}/delete-playlist`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ userId, playlistName })
         });
         if (res.ok) {
@@ -63,9 +69,9 @@ export const usePlaylistStore = defineStore('playlist', {
       const newName = prompt("Yeni liste adı:", oldName);
       if (!newName || newName === oldName) return;
       try {
-        const res = await fetch('https://my-spotify-player-tm8k.onrender.com/rename-playlist', {
+        const res = await fetch(`${API_BASE_URL}/rename-playlist`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ userId, oldName, newName })
         });
         if (res.ok) {

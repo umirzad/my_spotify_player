@@ -1,5 +1,29 @@
-# Vue 3 + Vite
+# my-spotify-player (Frontend)
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Bu proje `Vue 3` ve `Vue CLI` ile gelistirilmis bir Spotify benzeri arayuzdur.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## Kurulum
+
+```bash
+npm install
+```
+
+## Gelistirme
+
+```bash
+npm run serve
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+## Ortam Degiskeni
+
+`.env` dosyasina su degiskeni ekleyin:
+
+```bash
+VITE_API_BASE_URL=http://localhost:3000
+```

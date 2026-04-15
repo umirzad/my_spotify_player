@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { usePlayerStore } from '../stores/player';
+import { API_BASE_URL } from '../config/api';
 
 export function useMusic() {
     const results = ref([]);
@@ -9,7 +10,7 @@ export function useMusic() {
         if (!query || query.length < 2) return;
         loading.value = true;
         try {
-            const res = await fetch(`https://my-spotify-player-tm8k.onrender.com/search-with-images?q=${encodeURIComponent(query)}`);
+            const res = await fetch(`${API_BASE_URL}/search-with-images?q=${encodeURIComponent(query)}`);
             const data = await res.json();
             
             // VERİ EŞLEME (MAPPING)
