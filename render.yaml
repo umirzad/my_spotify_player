@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: my-spotify-player-api
+    env: node
+    rootDir: music-server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 3000
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
