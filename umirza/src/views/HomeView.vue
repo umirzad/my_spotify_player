@@ -1,97 +1,122 @@
 <template>
-  <div class="app-layout">
-    <aside class="sidebar">
-      <div class="logo" @click="goHome">
-        <h2>umirza 🎶</h2>
-      </div>
-
-      <nav class="menu">
-        <div class="menu-item" :class="{ active: !playlistStore.selectedPlaylist }" @click="goHome">
-          🏠 Ana Sayfa
-        </div>
-      </nav>
-
-      <div class="library">
-        <div class="library-header">
-          <span>📚 Kitaplığın</span>
-          <button @click="handleCreate" class="add-btn" title="Liste Oluştur">+</button>
-        </div>
-        
-        <div class="playlist-list">
-          <div v-if="playlistStore.loading" class="pl-status">Yükleniyor...</div>
-          <div v-else-if="playlistStore.playlists.length === 0" class="empty-pl">Henüz liste yok</div>
-          
-          <div 
-            v-for="pl in playlistStore.playlists" 
-            :key="pl._id" 
-            class="playlist-item"
-            :class="{ active: playlistStore.selectedPlaylist?._id === pl._id }"
-            @click="playlistStore.selectPlaylist(pl)"
-          >
-            {{ pl.name }}
-          </div>
-        </div>
-      </div>
-
-      <div class="user-profile">
-        <div class="avatar">{{ userEmail[0]?.toUpperCase() || 'U' }}</div>
-        <div class="user-info">
-          <span class="email">{{ userEmail.split('@')[0] }}</span>
-          <button @click="handleLogout" class="logout-link">Çıkış yap</button>
-        </div>
-      </div>
-    </aside>
-
+  <div class="app-shell">
     <main class="main-content">
-      <header class="top-bar">
-        <SearchBar @search="handleSearch" />
-      </header>
+      <section v-if="activeTab === 'home'" class="view">
+        <header class="hero-card">
+          <div>
+            <p class="hero-subtitle">Hos geldin</p>
+            <h1>{{ displayName }}</h1>
+            <p class="hero-meta">{{ playlistStore.playlists.length }} playlist • {{ totalTrackCount }} sarki</p>
+          </div>
+          <button class="ghost-btn" @click="goTab('library')">Kitapligima git</button>
+        </header>
 
-      <div class="content-body">
-        <div v-if="playlistStore.selectedPlaylist" class="playlist-view">
-          <div class="playlist-header-info">
-            <div class="header-text">
-              <h1>{{ playlistStore.selectedPlaylist.name }}</h1>
-              <p>{{ playlistStore.selectedPlaylist.tracks?.length || 0 }} şarkı</p>
-            </div>
-            
-            <div class="playlist-actions">
-              <button @click="playlistStore.renamePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="edit-btn">✏️</button>
-              <button @click="playlistStore.deletePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="delete-btn">🗑️</button>
+        <section class="section-block">
+          <div class="section-head">
+            <h2>Sana ozel secimler</h2>
+            <span>{{ personalizedTracks.length }} sarki</span>
+          </div>
+          <TrackList :tracks="personalizedTracks" @play="handlePlay" />
+        </section>
+
+        <section class="section-block">
+          <div class="section-head">
+            <h2>Playlistlerin</h2>
+            <button class="ghost-btn" @click="goTab('library')">Tumunu gor</button>
+          </div>
+          <div class="playlist-grid">
+            <button
+              v-for="pl in playlistStore.playlists.slice(0, 6)"
+              :key="pl._id || pl.name"
+              class="playlist-card"
+              @click="openPlaylist(pl)"
+            >
+              <strong>{{ pl.name }}</strong>
+              <small>{{ pl.tracks?.length || 0 }} sarki</small>
+            </button>
+            <div v-if="playlistStore.playlists.length === 0" class="empty-card">
+              Henuz playlistin yok. Kitapligim sekmesinden olusturabilirsin.
             </div>
           </div>
-          
-          <TrackList 
-            :tracks="playlistStore.selectedPlaylist.tracks" 
-            @play="handlePlay" 
-          />
+        </section>
+      </section>
+
+      <section v-else-if="activeTab === 'library'" class="view">
+        <div class="section-head">
+          <h2>Kitapligim</h2>
+          <button class="add-btn" @click="handleCreate">+ Playlist olustur</button>
         </div>
 
-        <div v-else>
-          <div v-if="loading" class="status">Şarkılar aranıyor...</div>
-          <TrackList 
-            v-else 
-            :tracks="results" 
-            @play="handlePlay" 
-          />
+        <div class="library-layout">
+          <div class="playlist-list-panel">
+            <div v-if="playlistStore.loading" class="status">Yukleniyor...</div>
+            <button
+              v-for="pl in playlistStore.playlists"
+              :key="pl._id || pl.name"
+              class="playlist-row"
+              :class="{ active: playlistStore.selectedPlaylist?._id === pl._id }"
+              @click="playlistStore.selectPlaylist(pl)"
+            >
+              <span>{{ pl.name }}</span>
+              <small>{{ pl.tracks?.length || 0 }}</small>
+            </button>
+            <div v-if="!playlistStore.loading && playlistStore.playlists.length === 0" class="status">
+              Henuz liste yok.
+            </div>
+          </div>
+
+          <div class="playlist-detail">
+            <div v-if="playlistStore.selectedPlaylist" class="playlist-header-info">
+              <div>
+                <h3>{{ playlistStore.selectedPlaylist.name }}</h3>
+                <p>{{ playlistStore.selectedPlaylist.tracks?.length || 0 }} sarki</p>
+              </div>
+              <div class="playlist-actions">
+                <button @click="playlistStore.renamePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="edit-btn">Duzenle</button>
+                <button @click="playlistStore.deletePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="delete-btn">Sil</button>
+              </div>
+            </div>
+            <TrackList
+              v-if="playlistStore.selectedPlaylist"
+              :tracks="playlistStore.selectedPlaylist.tracks"
+              @play="handlePlay"
+            />
+            <div v-else class="status">Soldan bir playlist sec.</div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section v-else class="view">
+        <div class="section-head">
+          <h2>Arama</h2>
+        </div>
+        <SearchBar @search="handleSearch" />
+        <div v-if="loading" class="status">Sarkilar araniyor...</div>
+        <TrackList v-else :tracks="results" @play="handlePlay" />
+      </section>
     </main>
 
-    <PlayerBar 
-      :track="playerStore.currentTrack" 
+    <footer class="bottom-nav">
+      <button :class="{ active: activeTab === 'home' }" @click="goTab('home')">Ana Sayfa</button>
+      <button :class="{ active: activeTab === 'library' }" @click="goTab('library')">Kitapligim</button>
+      <button :class="{ active: activeTab === 'search' }" @click="goTab('search')">Arama</button>
+      <button class="logout" @click="handleLogout">Cikis</button>
+    </footer>
+
+    <PlayerBar
+      :track="playerStore.currentTrack"
       :isPlaying="playerStore.isPlaying"
       :currentTime="playerStore.currentTime"
       :duration="playerStore.duration"
       :volume="playerStore.volume"
       :isReplay="playerStore.isReplay"
-      @toggle="playerStore.togglePlay" 
+      @toggle="playerStore.togglePlay"
       @seek="playerStore.seekTo"
       @volumeChange="playerStore.setVolume"
       @toggleReplay="playerStore.toggleReplay"
       @prev="playerStore.playPreviousTrack"
       @next="playerStore.playNextTrack"
-      @random="playerStore.playRandomTrack" 
+      @random="playerStore.playRandomTrack"
     />
 
     <div id="youtube-player" style="display: none;"></div>
@@ -99,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import SearchBar from '../components/searchBar.vue';
 import TrackList from '../components/trackList.vue';
@@ -107,35 +132,69 @@ import PlayerBar from '../components/playerBar.vue';
 import { useMusic } from '../composables/useMusic';
 import { usePlayerStore } from '../stores/player';
 import { usePlaylistStore } from '../stores/playlist';
+import { getUserData } from '../utils/auth';
 
 const router = useRouter();
 const { results, loading, search } = useMusic();
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
 
-const userEmail = ref('');
-const userData = JSON.parse(localStorage.getItem('userData'));
+const activeTab = ref('home');
+const userData = getUserData();
 
-onMounted(() => {
-  if (userData) {
-    userEmail.value = userData.email;
-    playlistStore.fetchPlaylists(userData.id);
-  } else {
+const displayName = computed(() => {
+  const email = userData?.email || '';
+  return email ? email.split('@')[0] : 'muziksever';
+});
+
+const totalTrackCount = computed(() =>
+  playlistStore.playlists.reduce((total, pl) => total + (pl.tracks?.length || 0), 0),
+);
+
+const personalizedTracks = computed(() => {
+  const map = new Map();
+  playlistStore.playlists.forEach((pl) => {
+    (pl.tracks || []).forEach((track) => {
+      const key = track.videoId || `${track.artist}-${track.name}`;
+      if (!map.has(key)) map.set(key, track);
+    });
+  });
+  return Array.from(map.values()).slice(0, 12);
+});
+
+onMounted(async () => {
+  if (!userData?.id) {
     router.push('/login');
+    return;
+  }
+  await playlistStore.fetchPlaylists(userData.id);
+  if (playlistStore.playlists.length > 0) {
+    playlistStore.selectPlaylist(playlistStore.playlists[0]);
   }
 });
 
+const goTab = (tab) => {
+  activeTab.value = tab;
+  if (tab !== 'library') {
+    playlistStore.clearSelection();
+  } else if (!playlistStore.selectedPlaylist && playlistStore.playlists.length > 0) {
+    playlistStore.selectPlaylist(playlistStore.playlists[0]);
+  }
+};
+
+const openPlaylist = (playlist) => {
+  activeTab.value = 'library';
+  playlistStore.selectPlaylist(playlist);
+};
+
 const handleSearch = (query) => {
+  activeTab.value = 'search';
   playlistStore.clearSelection();
   search(query);
 };
 
-const goHome = () => {
-  playlistStore.clearSelection();
-};
-
 const handleCreate = async () => {
-  const name = prompt("Yeni çalma listesi adı:");
+  const name = prompt('Yeni calma listesi adi:');
   if (name && userData?.id) {
     await playlistStore.createPlaylist(userData.id, name);
   }
@@ -145,12 +204,16 @@ const handlePlay = (track) => {
   playerStore.setTrack(track);
 };
 
-watch([results, () => playlistStore.selectedPlaylist], () => {
-  if (playlistStore.selectedPlaylist) {
-    playerStore.setTracks(playlistStore.selectedPlaylist.tracks);
-  } else {
-    playerStore.setTracks(results.value);
+watch([results, () => playlistStore.selectedPlaylist, activeTab, personalizedTracks], () => {
+  if (activeTab.value === 'library' && playlistStore.selectedPlaylist) {
+    playerStore.setTracks(playlistStore.selectedPlaylist.tracks || []);
+    return;
   }
+  if (activeTab.value === 'search') {
+    playerStore.setTracks(results.value || []);
+    return;
+  }
+  playerStore.setTracks(personalizedTracks.value || []);
 });
 
 const handleLogout = () => {
@@ -161,48 +224,200 @@ const handleLogout = () => {
 </script>
 
 <style scoped>
-/* CSS Temel Yapı */
-.app-layout { display: flex; height: 100vh; overflow: hidden; background-color: #000; }
-.sidebar { width: 260px; background-color: #000; display: flex; flex-direction: column; padding: 12px; gap: 10px; flex-shrink: 0; }
-.menu { background: #121212; border-radius: 8px; padding: 10px; }
-.menu-item { padding: 12px; color: #b3b3b3; font-weight: bold; cursor: pointer; transition: 0.3s; }
-.menu-item.active, .menu-item:hover { color: white; }
-.library { flex: 1; background: #121212; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
-.playlist-item { padding: 12px; color: #b3b3b3; cursor: pointer; border-radius: 6px; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.playlist-item.active { background: #282828; color: white; }
-.playlist-item:hover { color: white; }
+.app-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+  color: #fff;
+  padding-bottom: 164px;
+}
 
-.main-content { flex: 1; background: linear-gradient(to bottom, #222222, #121212); margin: 8px 8px 8px 0; border-radius: 8px; display: flex; flex-direction: column; overflow-y: auto; }
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px 0;
+}
 
-/* Playlist Başlık ve Aksiyonlar */
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.hero-card {
+  background: linear-gradient(135deg, #1db954 0%, #0c5f2f 100%);
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hero-card h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.hero-subtitle,
+.hero-meta {
+  margin: 0;
+  opacity: 0.92;
+}
+
+.section-block {
+  background: #181818;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.playlist-card {
+  background: #242424;
+  border: 1px solid #2f2f2f;
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlist-card:hover {
+  border-color: #1db954;
+}
+
+.empty-card,
+.status {
+  color: #b3b3b3;
+  padding: 10px;
+}
+
+.library-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 14px;
+}
+
+.playlist-list-panel,
+.playlist-detail {
+  background: #181818;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.playlist-row {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: #d1d1d1;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.playlist-row.active,
+.playlist-row:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
 .playlist-header-info {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  padding: 40px 0 20px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  align-items: center;
+  border-bottom: 1px solid #2f2f2f;
+  margin-bottom: 10px;
+  padding: 8px;
 }
-.playlist-header-info h1 { font-size: 3.5rem; margin: 0; color: white; }
-.playlist-header-info p { color: #b3b3b3; font-weight: bold; margin-top: 10px; }
 
-.playlist-actions { display: flex; gap: 10px; margin-bottom: 10px; }
-.edit-btn, .delete-btn {
-  background: rgba(255,255,255,0.1);
-  color: white;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.playlist-header-info h3,
+.playlist-header-info p {
+  margin: 0;
+}
+
+.playlist-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ghost-btn,
+.add-btn,
+.edit-btn,
+.delete-btn {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
   cursor: pointer;
+}
+
+.delete-btn {
+  border-color: #5c2d3f;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 90px;
+  height: 60px;
+  background: #121212;
+  border-top: 1px solid #2a2a2a;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: 0.2s;
+  gap: 10px;
+  z-index: 999;
 }
-.edit-btn:hover { background: #1db954; }
-.delete-btn:hover { background: #e91e63; }
 
-.user-profile { background: #121212; border-radius: 8px; padding: 15px; display: flex; align-items: center; gap: 15px; }
-.avatar { width: 42px; height: 42px; background: #1db954; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.bottom-nav button {
+  background: transparent;
+  border: 0;
+  color: #b3b3b3;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.bottom-nav button.active {
+  background: #1db954;
+  color: #111;
+}
+
+.bottom-nav .logout {
+  color: #f18f8f;
+}
+
+@media (max-width: 900px) {
+  .library-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
 </style>

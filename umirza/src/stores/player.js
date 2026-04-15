@@ -107,7 +107,11 @@ export const usePlayerStore = defineStore('player', {
                                 this.duration = player.getDuration();
                             }
                             if (e.data === window.YT.PlayerState.ENDED) {
-                                this.playNextTrack();
+                                if (this.isReplay && this.currentTrack?.videoId) {
+                                    this.playVideo(this.currentTrack.videoId);
+                                } else {
+                                    this.playNextTrack();
+                                }
                             }
                         },
                         'onError': (e) => {
@@ -179,6 +183,10 @@ export const usePlayerStore = defineStore('player', {
             if (player && typeof player.setVolume === 'function') {
                 player.setVolume(val);
             }
+        },
+
+        toggleReplay() {
+            this.isReplay = !this.isReplay;
         },
 
         startTimer() {
