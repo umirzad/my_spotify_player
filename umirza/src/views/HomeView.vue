@@ -1,6 +1,38 @@
 <template>
   <div class="app-shell">
+    <Toast />
+    <ConfirmDialog />
+    <Dialog v-model:visible="showCreateDialog" modal header="Yeni playlist" :style="{ width: '28rem' }">
+      <div class="dialog-field">
+        <label for="playlistName">Playlist adi</label>
+        <InputText id="playlistName" v-model="newPlaylistName" autocomplete="off" />
+      </div>
+      <template #footer>
+        <Button label="Vazgec" severity="secondary" text @click="showCreateDialog = false" />
+        <Button label="Olustur" @click="submitCreatePlaylist" />
+      </template>
+    </Dialog>
+
+    <Dialog v-model:visible="showRenameDialog" modal header="Playlist duzenle" :style="{ width: '28rem' }">
+      <div class="dialog-field">
+        <label for="renamePlaylist">Yeni ad</label>
+        <InputText id="renamePlaylist" v-model="renamePlaylistName" autocomplete="off" />
+      </div>
+      <template #footer>
+        <Button label="Vazgec" severity="secondary" text @click="showRenameDialog = false" />
+        <Button label="Kaydet" @click="submitRenamePlaylist" />
+      </template>
+    </Dialog>
+
     <main class="main-content">
+      <header class="top-userbar">
+        <div class="user-pill">
+          <span class="avatar">{{ displayName.charAt(0).toUpperCase() }}</span>
+          <span>@{{ displayName }}</span>
+        </div>
+        <Button label="Cikis yap" severity="secondary" outlined @click="askLogoutConfirm" />
+      </header>
+
       <section v-if="activeTab === 'home'" class="view">
         <header class="hero-card">
           <div>
@@ -72,8 +104,8 @@
                 <p>{{ playlistStore.selectedPlaylist.tracks?.length || 0 }} sarki</p>
               </div>
               <div class="playlist-actions">
-                <button @click="playlistStore.renamePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="edit-btn">Duzenle</button>
-                <button @click="playlistStore.deletePlaylist(userData.id, playlistStore.selectedPlaylist.name)" class="delete-btn">Sil</button>
+                <Button label="Duzenle" size="small" severity="secondary" @click="openRenameDialog" />
+                <Button label="Sil" size="small" severity="danger" outlined @click="askDeletePlaylist" />
               </div>
             </div>
             <TrackList
@@ -100,7 +132,6 @@
       <button :class="{ active: activeTab === 'home' }" @click="goTab('home')">Ana Sayfa</button>
       <button :class="{ active: activeTab === 'library' }" @click="goTab('library')">Kitapligim</button>
       <button :class="{ active: activeTab === 'search' }" @click="goTab('search')">Arama</button>
-      <button class="logout" @click="handleLogout">Cikis</button>
     </footer>
 
     <PlayerBar
@@ -126,6 +157,13 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import Button from 'primevue/button';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import ConfirmDialog from 'primevue/confirmdialog';
+import Toast from 'primevue/toast';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
 import SearchBar from '../components/searchBar.vue';
 import TrackList from '../components/trackList.vue';
 import PlayerBar from '../components/playerBar.vue';
@@ -138,9 +176,15 @@ const router = useRouter();
 const { results, loading, search } = useMusic();
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const confirm = useConfirm();
+const toast = useToast();
 
 const activeTab = ref('home');
 const userData = getUserData();
+const showCreateDialog = ref(false);
+const newPlaylistName = ref('');
+const showRenameDialog = ref(false);
+const renamePlaylistName = ref('');
 
 const displayName = computed(() => {
   const email = userData?.email || '';
@@ -193,11 +237,61 @@ const handleSearch = (query) => {
   search(query);
 };
 
-const handleCreate = async () => {
-  const name = prompt('Yeni calma listesi adi:');
-  if (name && userData?.id) {
-    await playlistStore.createPlaylist(userData.id, name);
+const handleCreate = () => {
+  newPlaylistName.value = '';
+  showCreateDialog.value = true;
+};
+
+const submitCreatePlaylist = async () => {
+  const name = newPlaylistName.value.trim();
+  if (!name || !userData?.id) return;
+  const ok = await playlistStore.createPlaylist(userData.id, name);
+  if (ok) {
+    showCreateDialog.value = false;
+    toast.add({ severity: 'success', summary: 'Basarili', detail: 'Playlist olusturuldu.', life: 2500 });
+  } else {
+    toast.add({ severity: 'error', summary: 'Hata', detail: 'Playlist olusturulamadi.', life: 2500 });
   }
+};
+
+const openRenameDialog = () => {
+  if (!playlistStore.selectedPlaylist) return;
+  renamePlaylistName.value = playlistStore.selectedPlaylist.name || '';
+  showRenameDialog.value = true;
+};
+
+const submitRenamePlaylist = async () => {
+  const selected = playlistStore.selectedPlaylist;
+  if (!selected || !userData?.id) return;
+  const newName = renamePlaylistName.value.trim();
+  const ok = await playlistStore.renamePlaylist(userData.id, selected.name, newName);
+  if (ok) {
+    showRenameDialog.value = false;
+    toast.add({ severity: 'success', summary: 'Guncellendi', detail: 'Playlist adi degisti.', life: 2500 });
+  } else {
+    toast.add({ severity: 'warn', summary: 'Bilgi', detail: 'Playlist adi degistirilemedi.', life: 2500 });
+  }
+};
+
+const askDeletePlaylist = () => {
+  const selected = playlistStore.selectedPlaylist;
+  if (!selected || !userData?.id) return;
+
+  confirm.require({
+    message: `"${selected.name}" playlistini silmek istiyor musun?`,
+    header: 'Silme onayi',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Vazgec', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Sil', severity: 'danger' },
+    accept: async () => {
+      const ok = await playlistStore.deletePlaylist(userData.id, selected.name);
+      if (ok) {
+        toast.add({ severity: 'success', summary: 'Silindi', detail: 'Playlist silindi.', life: 2500 });
+      } else {
+        toast.add({ severity: 'error', summary: 'Hata', detail: 'Playlist silinemedi.', life: 2500 });
+      }
+    },
+  });
 };
 
 const handlePlay = (track) => {
@@ -221,6 +315,17 @@ const handleLogout = () => {
   localStorage.removeItem('userData');
   router.push('/login');
 };
+
+const askLogoutConfirm = () => {
+  confirm.require({
+    message: 'Cikis yapmak istiyor musun?',
+    header: 'Oturumu kapat',
+    icon: 'pi pi-sign-out',
+    rejectProps: { label: 'Vazgec', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Cikis', severity: 'danger' },
+    accept: handleLogout,
+  });
+};
 </script>
 
 <style scoped>
@@ -235,6 +340,35 @@ const handleLogout = () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 16px 0;
+}
+
+.top-userbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1c1c1c;
+  border: 1px solid #2b2b2b;
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #1db954;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
 }
 
 .view {
@@ -373,6 +507,12 @@ const handleLogout = () => {
 
 .delete-btn {
   border-color: #5c2d3f;
+}
+
+.dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .bottom-nav {

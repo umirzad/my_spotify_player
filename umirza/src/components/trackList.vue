@@ -1,4 +1,6 @@
 <template>
+  <Toast />
+  <ConfirmDialog />
   <div class="track-list">
     <div v-for="track in tracks" :key="track.videoId" class="track-item">
       <div class="track-main" @click="$emit('play', track)">
@@ -42,6 +44,10 @@
 </template>
 
 <script setup>
+import ConfirmDialog from 'primevue/confirmdialog';
+import Toast from 'primevue/toast';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
 import { usePlaylistStore } from '../stores/playlist';
 import { API_BASE_URL } from '../config/api';
 import { authHeaders, getUserData } from '../utils/auth';
@@ -49,6 +55,8 @@ import { authHeaders, getUserData } from '../utils/auth';
 defineProps(['tracks']);
 const emit = defineEmits(['play']);
 const playlistStore = usePlaylistStore();
+const confirm = useConfirm();
+const toast = useToast();
 
 const handleSelectChange = async (event, track) => {
   const playlistName = event.target.value;
@@ -66,10 +74,11 @@ const handleSelectChange = async (event, track) => {
     if (res.ok) {
       // ANINDA GÜNCELLE: Store'dan verileri tekrar çek
       await playlistStore.fetchPlaylists(userData.id);
-      alert("Şarkı eklendi! ✨");
+      toast.add({ severity: 'success', summary: 'Eklendi', detail: 'Sarki playlistine eklendi.', life: 2200 });
     }
   } catch (err) {
     console.error(err);
+    toast.add({ severity: 'error', summary: 'Hata', detail: 'Sarki eklenemedi.', life: 2200 });
   } finally {
     event.target.value = "";
   }
@@ -78,27 +87,37 @@ const handleSelectChange = async (event, track) => {
 const handleRemove = async (track) => {
   const userData = getUserData();
   const playlistName = playlistStore.selectedPlaylist.name;
+  if (!userData?.id) return;
 
-  if (!confirm("Şarkıyı listeden silmek istiyor musunuz?")) return;
+  confirm.require({
+    message: 'Sarkiyi listeden kaldirmak istiyor musun?',
+    header: 'Silme onayi',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Vazgec', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Sil', severity: 'danger' },
+    accept: async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/remove-from-playlist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({
+            userId: userData.id,
+            playlistName: playlistName,
+            videoId: track.videoId
+          })
+        });
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/remove-from-playlist`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ 
-        userId: userData.id, 
-        playlistName: playlistName, 
-        videoId: track.videoId 
-      })
-    });
-
-    if (res.ok) {
-      // ANINDA GÜNCELLE: Silinen şarkı ekrandan hemen gider
-      await playlistStore.fetchPlaylists(userData.id);
+        if (res.ok) {
+          await playlistStore.fetchPlaylists(userData.id);
+          toast.add({ severity: 'success', summary: 'Silindi', detail: 'Sarki playlistten kaldirildi.', life: 2200 });
+        } else {
+          toast.add({ severity: 'error', summary: 'Hata', detail: 'Sarki kaldirilamadi.', life: 2200 });
+        }
+      } catch (err) {
+        toast.add({ severity: 'error', summary: 'Hata', detail: 'Silme sirasinda sorun olustu.', life: 2200 });
+      }
     }
-  } catch (err) {
-    alert("Silinirken bir hata oluştu.");
-  }
+  });
 };
 </script>
 

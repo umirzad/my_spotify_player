@@ -48,9 +48,7 @@ export const usePlaylistStore = defineStore('playlist', {
       } catch (err) { return false; }
     },
 
-    // YENİ: Playlist Silme
     async deletePlaylist(userId, playlistName) {
-      if (!confirm(`"${playlistName}" listesini silmek istediğine emin misin?`)) return;
       try {
         const res = await fetch(`${API_BASE_URL}/delete-playlist`, {
           method: 'POST',
@@ -60,13 +58,15 @@ export const usePlaylistStore = defineStore('playlist', {
         if (res.ok) {
           this.selectedPlaylist = null;
           await this.fetchPlaylists(userId);
+          return true;
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+        console.error(err);
+      }
+      return false;
     },
 
-    // YENİ: Playlist İsmi Değiştirme
-    async renamePlaylist(userId, oldName) {
-      const newName = prompt("Yeni liste adı:", oldName);
+    async renamePlaylist(userId, oldName, newName) {
       if (!newName || newName === oldName) return;
       try {
         const res = await fetch(`${API_BASE_URL}/rename-playlist`, {
@@ -76,8 +76,12 @@ export const usePlaylistStore = defineStore('playlist', {
         });
         if (res.ok) {
           await this.fetchPlaylists(userId);
+          return true;
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+        console.error(err); 
+      }
+      return false;
     },
 
     selectPlaylist(playlist) {
